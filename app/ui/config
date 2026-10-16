@@ -1,0 +1,16 @@
+{
+  ".url": {
+    "TimeKeeper.main": {
+      "title": "时光修复师",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "http",
+      "port": "28090",
+      "url": "/",
+      "allUsers": false,
+      "control": {
+        "accessPerm": "readonly"
+      }
+    }
+  }
+}

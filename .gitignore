@@ -1,0 +1,26 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Local database & temp files
+*.db
+*.db-wal
+*.db-shm
+timekeeper.db
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Packaging artifacts
+*.fpk
+dist/
+build/

@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>时光修复师 - 飞牛 fnOS 原生应用</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --border: #e2e8f0;
+      --modal-bg: rgba(15, 23, 42, 0.55);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --card-bg: #1e293b;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --border: #334155;
+        --modal-bg: rgba(0, 0, 0, 0.7);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: rgba(37, 99, 235, 0.1);
+      color: var(--primary);
+    }
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(5, minmax(0, 1fr)); 
+      gap: 10px; 
+      margin-bottom: 20px; 
+    }
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      min-width: 0;
+    }
+    .card-title { 
+      font-size: 12px; 
+      color: var(--text-muted); 
+      margin-bottom: 6px; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+    }
+    .card-value { 
+      font-size: 20px; 
+      font-weight: 700; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+    }
+    .progress-box { margin-bottom: 24px; }
+    .progress-bar-bg {
+      background: var(--border);
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      background: var(--primary);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .path-select-box {
+      flex: 1;
+      display: flex;
+      min-width: 280px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .path-display {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: all;
+    }
+    .btn-choose {
+      background: rgba(37, 99, 235, 0.1);
+      color: var(--primary);
+      padding: 0 16px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      border-left: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-choose:hover {
+      background: rgba(37, 99, 235, 0.2);
+    }
+    button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    button.primary { background: var(--primary); color: white; }
+    button.primary:hover { background: var(--primary-hover); }
+    button.secondary { background: var(--border); color: var(--text-main); }
+    button.warning { background: var(--warning); color: white; }
+    button.danger { background: var(--danger); color: white; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 12px;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .table-container { 
+      overflow-x: auto; 
+      -webkit-overflow-scrolling: touch; 
+      max-height: 440px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+    }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 13px; 
+      text-align: left; 
+      min-width: 600px; 
+    }
+    th, td { 
+      padding: 10px 12px; 
+      border-bottom: 1px solid var(--border); 
+      white-space: nowrap; 
+    }
+    th { color: var(--text-muted); font-weight: 500; position: sticky; top: 0; background: var(--card-bg); z-index: 2; }
+    .log-box {
+      background: #000;
+      color: #10b981;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .checkbox-group { display: flex; gap: 16px; align-items: center; font-size: 14px; margin-bottom: 16px; }
+
+    /* 文件夹选择弹窗样式 (飞牛桌面原生质感) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--modal-bg);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-dialog {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 90%;
+      max-width: 620px;
+      height: 520px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 600; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+    }
+    .breadcrumb-bar {
+      padding: 10px 20px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+      overflow-x: auto;
+    }
+    .breadcrumb-item {
+      cursor: pointer;
+      color: var(--primary);
+    }
+    .breadcrumb-item:hover { text-decoration: underline; }
+    .folder-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+    }
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+    .folder-item:hover {
+      background: rgba(37, 99, 235, 0.08);
+    }
+    .folder-item.selected {
+      background: rgba(37, 99, 235, 0.15);
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .folder-icon { color: #f59e0b; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg);
+    }
+    /* 扫描中动画指示器 */
+    .scan-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(37, 99, 235, 0.15);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px auto;
+    }
+    /* 移动端提示与按钮组 */
+    .mobile-scroll-hint {
+      display: none;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      background: rgba(37, 99, 235, 0.08);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--primary);
+    }
+    .action-btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* 移动端 (手机/窄屏 <= 768px) 深度响应式排版 */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px 10px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+      }
+      .header h1 {
+        font-size: 18px;
+        flex-wrap: wrap;
+      }
+      .control-row {
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .path-select-box {
+        width: 100%;
+        min-width: 0;
+      }
+      .action-btn-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        width: 100%;
+      }
+      .action-btn-group #scanBtn {
+        grid-column: span 2;
+      }
+      .action-btn-group button {
+        width: 100%;
+        justify-content: center;
+        padding: 9px 8px;
+        font-size: 13px;
+      }
+      .checkbox-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .concurrency-wrapper {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 6px;
+      }
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        margin-bottom: 14px !important;
+      }
+      .card {
+        padding: 10px 10px !important;
+      }
+      .card:nth-child(5) {
+        grid-column: span 2;
+      }
+      .card-title {
+        font-size: 11px !important;
+      }
+      .card-value {
+        font-size: 17px !important;
+      }
+      .progress-meta {
+        font-size: 11px;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .tabs {
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        margin-bottom: 12px;
+        scrollbar-width: none;
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab-btn {
+        font-size: 13px;
+        padding: 6px 10px;
+        flex-shrink: 0;
+      }
+      .files-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      .files-toolbar-search {
+        max-width: 100% !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+      .files-toolbar-search input,
+      .files-toolbar-search select {
+        width: 100% !important;
+        box-sizing: border-box;
+      }
+      .files-toolbar-pagination-settings {
+        justify-content: space-between !important;
+        width: 100% !important;
+      }
+      .mobile-scroll-hint {
+        display: block !important;
+      }
+      .pagination-bar {
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: center !important;
+      }
+      .modal-dialog {
+        width: 100% !important;
+        max-height: 90vh !important;
+        height: 85vh !important;
+        border-radius: 12px !important;
+      }
+      .modal-header {
+        padding: 12px 14px !important;
+      }
+      .breadcrumb-bar {
+        padding: 8px 12px !important;
+      }
+      .modal-footer {
+        padding: 10px 12px !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+      .modal-footer-btns {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+      }
+      .modal-footer-btns button {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      时光修复师 (TimeKeeper)
+      <span class="badge" id="exifBadge">检查 ExifTool 中...</span>
+    </h1>
+    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.3.4</div>
+  </div>
+
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="control-row">
+      <div class="path-select-box">
+        <div class="path-display" id="selectedPathDisplay">请点击右侧按钮选择照片文件夹</div>
+        <button type="button" class="btn-choose" onclick="openFolderPicker()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a2 2 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139q.323-.12.684-.12h11.62c.36 0 .682.04.684.12l.006-.139A1 1 0 0 0 13.5 2H9.828a1 1 0 0 0-.707-.293z"/></svg>
+          选择目录
+        </button>
+      </div>
+
+      <div class="action-btn-group">
+        <button class="primary" id="scanBtn" onclick="startScan()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+          全量扫描文件
+        </button>
+        <button class="primary" id="startBtn" onclick="startFix(false)">执行修复</button>
+        <button class="secondary" id="dryRunBtn" onclick="startFix(true)">空跑模拟 (Dry-Run)</button>
+        <button class="warning" id="pauseBtn" onclick="togglePause()" disabled>暂停</button>
+        <button class="danger" id="stopBtn" onclick="stopTask()" disabled>停止</button>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">扫描策略与增量机制：</div>
+        <button type="button" class="secondary" style="font-size: 12px; padding: 4px 10px;" onclick="clearHistory()">🗑 清空历史记录</button>
+      </div>
+      <div class="checkbox-group" style="margin-bottom: 12px;">
+        <label title="智能增量模式：再次扫描同一目录时，毫秒级跳过历史已经成功修复的文件，仅扫描和处理新增文件或未完成文件，大幅节省时间"><input type="checkbox" id="modeIncremental" checked> ⚡ 智能增量扫描 (自动跳过历史已成功修复文件，极速索引)</label>
+      </div>
+
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-main);">时间识别来源设置（支持多选与级联回退）：</div>
+      <div class="checkbox-group" style="margin-bottom: 12px;">
+        <label title="首选：从文件名中提取年月日时分秒或时间戳"><input type="checkbox" id="modeFilename" checked> 1. 文件名时间提取 (高优先级)</label>
+        <label title="救回相机拍摄图：从照片或视频内部Exif/QuickTime深层元数据提取"><input type="checkbox" id="modeExif" checked> 2. 内部原生 Exif 挖掘 (救回相机原图)</label>
+        <label title="针对无时间文件：向上检查父文件夹是否包含年月归档信息"><input type="checkbox" id="modeDir" checked> 3. 父文件夹年月继承 (按目录归档)</label>
+      </div>
+
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-main);">修复动作目标项与性能：</div>
+      <div class="checkbox-group" style="margin-bottom: 0; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+          <label><input type="checkbox" id="fixExif" checked> 修改 Exif 拍摄时间 / 视频流元数据</label>
+          <label><input type="checkbox" id="fixFs" checked> 修改文件系统创建/修改时间 (同步相册时间轴)</label>
+        </div>
+        <div class="concurrency-wrapper" style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 13px; color: var(--text-muted);">处理并发线程:</span>
+          <select id="concurrencySelect" style="padding: 4px 10px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); cursor: pointer;">
+            <option value="2">2 线程 (节能)</option>
+            <option value="4" selected>4 线程 (推荐)</option>
+            <option value="8">8 线程 (极速)</option>
+            <option value="16">16 线程 (高配 NAS)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">待处理文件</div>
+      <div class="card-value" id="valPending">0</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">待校准时间</div>
+    </div>
+    <div class="card">
+      <div class="card-title">成功修复</div>
+      <div class="card-value" style="color: var(--success);" id="valSuccess">0</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">已同步时间轴</div>
+    </div>
+    <div class="card">
+      <div class="card-title">已跳过 (无法提取)</div>
+      <div class="card-value" style="color: var(--warning);" id="valSkipped">0</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">全规则未匹配</div>
+    </div>
+    <div class="card">
+      <div class="card-title">当前处理速度</div>
+      <div class="card-value" style="color: var(--primary);" id="valSpeed">0 文件/秒</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="speedSubText">就绪待命</div>
+    </div>
+    <div class="card">
+      <div class="card-title">预计剩余 / 完成时刻</div>
+      <div class="card-value" style="font-size: 20px; color: #8b5cf6;" id="valTimeRemaining">--</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="valEstimatedFinish">预计完成: --</div>
+    </div>
+  </div>
+
+  <div class="card progress-box">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-meta">
+      <span id="currentFileText">就绪</span>
+      <span id="progressPercent">0%</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tabFiles')">文件状态清单</button>
+    <button class="tab-btn" onclick="switchTab('tabLogs')">实时控制台日志</button>
+    <button class="tab-btn" onclick="switchTab('tabSandbox')">规则沙盒测试</button>
+  </div>
+
+  <div id="tabFiles" class="tab-content active card">
+    <!-- 搜索与筛选工具栏 -->
+    <div class="files-toolbar" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+      <div class="files-toolbar-search" style="display: flex; gap: 10px; align-items: center; flex: 1; max-width: 500px;">
+        <input type="text" id="fileSearchInput" placeholder="🔍 搜索文件名 (输入即时检索)..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main);" oninput="onSearchInput()">
+        <select id="fileStatusSelect" style="padding: 8px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); cursor: pointer;" onchange="onStatusFilterChange()">
+          <option value="ALL">全部状态</option>
+          <option value="PENDING">待修复</option>
+          <option value="SUCCESS">修复成功</option>
+          <option value="SKIPPED">已跳过</option>
+          <option value="FAILED">修复失败</option>
+        </select>
+      </div>
+
+      <div class="files-toolbar-pagination-settings" style="display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--text-muted);">
+        <span>每页条数:</span>
+        <select id="pageSizeSelect" style="padding: 6px 10px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); cursor: pointer;" onchange="onPageSizeChange()">
+          <option value="20">20 条</option>
+          <option value="50" selected>50 条</option>
+          <option value="100">100 条</option>
+          <option value="200">200 条</option>
+        </select>
+        <button type="button" class="secondary" style="padding: 6px 12px; font-size: 12px;" onclick="loadFiles()">🔄 刷新列表</button>
+      </div>
+    </div>
+
+    <!-- 手机端左右滑动提示 -->
+    <div class="mobile-scroll-hint">👈👉 提示：可左右滑动表格查看完整字段</div>
+
+    <!-- 数据表格 -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width: 220px;">文件名</th>
+            <th style="min-width: 150px;">识别出的时间</th>
+            <th style="min-width: 100px;">状态</th>
+            <th>处理详情</th>
+          </tr>
+        </thead>
+        <tbody id="filesTableBody">
+          <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">暂无记录，请先选择目录点击【全量扫描文件】</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分页导航栏 -->
+    <div class="pagination-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px;">
+      <div id="paginationInfo" style="color: var(--text-muted);">
+        共 0 条文件记录
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="secondary" style="padding: 6px 12px; font-size: 13px;" id="btnPrevPage" onclick="changePage(-1)" disabled>◀ 上一页</button>
+        <span id="pageIndicator" style="font-weight: 600; padding: 0 6px;">第 1 / 1 页</span>
+        <button type="button" class="secondary" style="padding: 6px 12px; font-size: 13px;" id="btnNextPage" onclick="changePage(1)" disabled>下一页 ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabLogs" class="tab-content card">
+    <div class="log-box" id="logConsole">就绪...</div>
+  </div>
+
+  <div id="tabSandbox" class="tab-content card">
+    <div style="font-size: 14px; margin-bottom: 12px; color: var(--text-muted);">
+      输入任意样本文件名，即时验证本工具的时间正则规则库解析效果：
+    </div>
+    <div class="control-row">
+      <input type="text" id="sandboxInput" placeholder="例如: VID_20230815_143025.mp4 或 mmexport1692085825000.jpg" value="IMG_20230815_143025.jpg" style="padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--card-bg); color:var(--text-main); flex:1;">
+      <button class="primary" onclick="testRegex()">测试解析</button>
+    </div>
+    <div id="sandboxResult" style="margin-top: 10px; font-weight: 500;"></div>
+  </div>
+
+  <!-- 飞牛原生风格文件夹选择弹窗 -->
+  <div class="modal-overlay" id="pickerModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>选择照片/视频所在的文件夹</h3>
+        <button class="modal-close" onclick="closeFolderPicker()">&times;</button>
+      </div>
+      <div class="breadcrumb-bar" id="pickerBreadcrumbs">
+        <span class="breadcrumb-item">存储池根目录</span>
+      </div>
+      <div class="folder-list" id="pickerFolderList">
+        <div style="text-align:center; padding: 40px; color: var(--text-muted);">正在检索存储池目录...</div>
+      </div>
+      <div class="modal-footer">
+        <div style="font-size: 12px; color: var(--text-muted);" id="currentBrowsePath">当前选中: </div>
+        <div style="display:flex; gap:10px;">
+          <button class="secondary" onclick="closeFolderPicker()">取消</button>
+          <button class="primary" onclick="confirmSelectFolder()">确定选择该目录</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全量扫描进度弹窗 (实时反馈扫描数量与当前文件) -->
+  <div class="modal-overlay" id="scanModal">
+    <div class="modal-dialog" style="max-width: 480px; height: auto; min-height: 280px; text-align: center; padding: 28px 24px;">
+      <div class="scan-spinner"></div>
+      <h3 style="font-size: 18px; margin-bottom: 8px;">正在深度扫描媒体文件...</h3>
+      <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+        正在分析文件名、提取 Exif 及继承目录归档时间
+      </div>
+
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span style="color: var(--text-muted);">已检索文件数:</span>
+          <span style="font-weight: 700; color: var(--primary); font-size: 16px;" id="modalScannedCount">0</span>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="modalCurrentFile">
+          正在读取文件夹...
+        </div>
+      </div>
+
+      <div>
+        <button class="secondary" style="font-size: 13px; padding: 8px 20px;" onclick="stopTask()">停止扫描</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeSelectedPath = "";
+    let pickerCurrentPath = "";
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // --- 文件夹选择器逻辑 ---
+    function openFolderPicker() {
+      document.getElementById('pickerModal').classList.add('open');
+      if (activeSelectedPath) {
+        browsePath(activeSelectedPath);
+      } else {
+        fetchRoots();
+      }
+    }
+
+    function closeFolderPicker() {
+      document.getElementById('pickerModal').classList.remove('open');
+    }
+
+    async function fetchRoots() {
+      try {
+        const res = await fetch('/api/roots');
+        const data = await res.json();
+        renderRootsList(data.roots || []);
+        renderBreadcrumbs([{ name: '存储池与授权列表', path: '' }]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderRootsList(roots) {
+      const listEl = document.getElementById('pickerFolderList');
+      if (roots.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; padding: 30px; color: var(--text-muted);">未检测到可用目录，请在应用设置【访问权限】中添加文件夹</div>`;
+        return;
+      }
+      listEl.innerHTML = roots.map(r => `
+        <div class="folder-item" onclick="handleRootClick('${r.path}')" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="folder-icon">📂</span>
+            <span style="font-weight:600;">${r.name}</span>
+          </div>
+          <button class="primary" style="padding:4px 10px; font-size:12px;" onclick="event.stopPropagation(); selectPathDirectly('${r.path}')">直接选择</button>
+        </div>
+      `).join('');
+    }
+
+    function handleRootClick(path) {
+      pickerCurrentPath = path;
+      document.getElementById('currentBrowsePath').textContent = `当前选中: ${path}`;
+      browsePath(path);
+    }
+
+    function selectPathDirectly(path) {
+      activeSelectedPath = path;
+      document.getElementById('selectedPathDisplay').textContent = activeSelectedPath;
+      closeFolderPicker();
+    }
+
+    async function browsePath(p) {
+      pickerCurrentPath = p;
+      document.getElementById('currentBrowsePath').textContent = `当前选中: ${p}`;
+      try {
+        const res = await fetch(`/api/browse?path=${encodeURIComponent(p)}`);
+        const data = await res.json();
+        if (data.error) {
+          alert('提示：' + data.error + '\n\n如果是存储池根目录无法直接列出，建议直接点击【确定选择该目录】或【直接选择】使用该授权路径。');
+          return;
+        }
+        renderFolderList(data.directories || [], data.parent);
+        buildBreadcrumbs(data.current);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderBreadcrumbs(crumbs) {
+      const bc = document.getElementById('pickerBreadcrumbs');
+      bc.innerHTML = crumbs.map((c, idx) => `
+        <span class="breadcrumb-item" onclick="${c.path ? `browsePath('${c.path}')` : 'fetchRoots()'}">${c.name}</span>
+        ${idx < crumbs.length - 1 ? '<span>/</span>' : ''}
+      `).join('');
+    }
+
+    function buildBreadcrumbs(fullPath) {
+      const parts = fullPath.split('/').filter(Boolean);
+      const crumbs = [{ name: '列表', path: '' }];
+      let curr = '';
+      for (const pt of parts) {
+        curr += '/' + pt;
+        crumbs.push({ name: pt, path: curr });
+      }
+      renderBreadcrumbs(crumbs);
+    }
+
+    function renderFolderList(dirs, parentPath) {
+      const listEl = document.getElementById('pickerFolderList');
+      let html = '';
+
+      if (parentPath !== undefined && parentPath !== null) {
+        html += `
+          <div class="folder-item" onclick="browsePath('${parentPath}')">
+            <span class="folder-icon">⬆</span>
+            <span>.. (返回上一层)</span>
+          </div>
+        `;
+      }
+
+      if (dirs.length === 0) {
+        html += `<div style="text-align:center; padding: 30px; color: var(--text-muted);">此目录下无更多子文件夹</div>`;
+      } else {
+        dirs.forEach(d => {
+          html += `
+            <div class="folder-item" onclick="browsePath('${d.path}')">
+              <span class="folder-icon">📁</span>
+              <span style="flex:1;">${d.name}</span>
+              <button class="secondary" style="padding:2px 8px; font-size:12px;" onclick="event.stopPropagation(); selectPathDirectly('${d.path}')">选定此目录</button>
+            </div>
+          `;
+        });
+      }
+      listEl.innerHTML = html;
+    }
+
+    function confirmSelectFolder() {
+      if (!pickerCurrentPath) return alert('请先选择一个目录');
+      activeSelectedPath = pickerCurrentPath;
+      document.getElementById('selectedPathDisplay').textContent = activeSelectedPath;
+      closeFolderPicker();
+    }
+
+    // --- 轮询与控制 ---
+    async function pollStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // 首次加载若后端已有记录的路径，自动同步
+        if (!activeSelectedPath && data.current_path) {
+          activeSelectedPath = data.current_path;
+          document.getElementById('selectedPathDisplay').textContent = activeSelectedPath;
+        }
+
+        const badge = document.getElementById('exifBadge');
+        if (data.has_exiftool) {
+          badge.textContent = 'ExifTool 引擎已就绪';
+          badge.style.color = 'var(--success)';
+        } else {
+          badge.textContent = '纯文件系统模式 (未安装 ExifTool)';
+          badge.style.color = 'var(--warning)';
+        }
+
+        const stats = data.stats || {};
+        const pendingCount = stats.PENDING || 0;
+        document.getElementById('valPending').textContent = pendingCount;
+        document.getElementById('valSuccess').textContent = stats.SUCCESS || 0;
+        document.getElementById('valSkipped').textContent = stats.SKIPPED || 0;
+
+        const speed = data.speed || 0;
+        const speedEl = document.getElementById('valSpeed');
+        const speedSubEl = document.getElementById('speedSubText');
+        const timeRemainingEl = document.getElementById('valTimeRemaining');
+        const finishTimeEl = document.getElementById('valEstimatedFinish');
+
+        if (data.status === 'RUNNING') {
+          speedEl.textContent = `${speed} 文件/秒`;
+          speedSubEl.textContent = '多线程并发中';
+
+          if (speed > 0 && pendingCount > 0) {
+            const secLeft = pendingCount / speed;
+            let timeStr = "";
+            if (secLeft < 60) {
+              timeStr = `${Math.ceil(secLeft)} 秒`;
+            } else if (secLeft < 3600) {
+              const m = Math.floor(secLeft / 60);
+              const s = Math.round(secLeft % 60);
+              timeStr = `${m} 分 ${s} 秒`;
+            } else {
+              const h = Math.floor(secLeft / 3600);
+              const m = Math.floor((secLeft % 3600) / 60);
+              timeStr = `${h} 小时 ${m} 分`;
+            }
+            timeRemainingEl.textContent = `约 ${timeStr}`;
+            timeRemainingEl.style.color = '#8b5cf6';
+
+            const finishDate = new Date(Date.now() + secLeft * 1000);
+            const hh = String(finishDate.getHours()).padStart(2, '0');
+            const mm = String(finishDate.getMinutes()).padStart(2, '0');
+            const isTomorrow = finishDate.getDate() !== new Date().getDate();
+            finishTimeEl.textContent = `预计完成: ${isTomorrow ? '明天 ' : ''}${hh}:${mm}`;
+          } else {
+            timeRemainingEl.textContent = '计算中...';
+            timeRemainingEl.style.color = '#8b5cf6';
+            finishTimeEl.textContent = '正在采集执行速率';
+          }
+        } else if (data.status === 'FINISHED') {
+          speedEl.textContent = '0 文件/秒';
+          speedSubEl.textContent = '任务已完成';
+          timeRemainingEl.textContent = '全部完成';
+          timeRemainingEl.style.color = 'var(--success)';
+          finishTimeEl.textContent = '待处理队列已清空';
+        } else if (data.status === 'PAUSED') {
+          speedEl.textContent = '已暂停';
+          speedSubEl.textContent = '点击恢复继续';
+          timeRemainingEl.textContent = '已暂停';
+          timeRemainingEl.style.color = 'var(--warning)';
+          finishTimeEl.textContent = '等待继续执行';
+        } else if (data.status === 'SCANNING') {
+          speedEl.textContent = '极速扫描中';
+          speedSubEl.textContent = '建立索引中';
+          timeRemainingEl.textContent = '扫描分析中';
+          timeRemainingEl.style.color = 'var(--primary)';
+          finishTimeEl.textContent = '扫描后开始处理';
+        } else {
+          speedEl.textContent = '0 文件/秒';
+          speedSubEl.textContent = '就绪待命';
+          timeRemainingEl.textContent = '--';
+          timeRemainingEl.style.color = '#8b5cf6';
+          finishTimeEl.textContent = '预计完成: --';
+        }
+
+        const total = data.total || 0;
+        const processed = data.processed || 0;
+        const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressPercent').textContent = `${pct}% (${processed}/${total})`;
+
+        const TASK_STATUS_MAP = {
+          'IDLE': '就绪',
+          'SCANNING': '正在全量极速扫描中...',
+          'RUNNING': '正在批处理修复中...',
+          'PAUSED': '已暂停',
+          'FINISHED': '全部处理完成'
+        };
+
+        const statusCn = TASK_STATUS_MAP[data.status] || data.status;
+
+        if (data.current_file) {
+          const actionText = (data.status === 'SCANNING') ? '正在索引' : '正在处理';
+          document.getElementById('currentFileText').textContent = `${actionText}: ${data.current_file}`;
+        } else {
+          document.getElementById('currentFileText').textContent = `状态: ${statusCn}`;
+        }
+
+        // 扫描全屏进度弹窗控制
+        const scanModal = document.getElementById('scanModal');
+        if (data.status === 'SCANNING') {
+          scanModal.classList.add('open');
+          document.getElementById('modalScannedCount').textContent = data.scanned_count || 0;
+          if (data.current_file) {
+            document.getElementById('modalCurrentFile').textContent = `正在索引: ${data.current_file}`;
+          }
+        } else {
+          scanModal.classList.remove('open');
+        }
+
+        const isRunning = data.status === 'RUNNING' || data.status === 'SCANNING';
+        isTaskRunning = isRunning;
+        document.getElementById('scanBtn').disabled = isRunning;
+        document.getElementById('startBtn').disabled = isRunning;
+        document.getElementById('dryRunBtn').disabled = isRunning;
+        document.getElementById('pauseBtn').disabled = !isRunning && data.status !== 'PAUSED';
+        document.getElementById('stopBtn').disabled = !isRunning && data.status !== 'PAUSED';
+
+        if (data.status === 'PAUSED') {
+          document.getElementById('pauseBtn').textContent = '恢复执行';
+        } else {
+          document.getElementById('pauseBtn').textContent = '暂停';
+        }
+
+        if (data.logs && data.logs.length > 0) {
+          document.getElementById('logConsole').textContent = data.logs.join('\n');
+          const box = document.getElementById('logConsole');
+          box.scrollTop = box.scrollHeight;
+        }
+
+      } catch (err) {}
+    }
+
+    let currentPage = 1;
+    let currentPageSize = 50;
+    let currentSearch = "";
+    let currentStatus = "ALL";
+    let totalPages = 1;
+    let totalFilesCount = 0;
+    let searchDebounceTimer = null;
+    let isTaskRunning = false;
+
+    const STATUS_MAP = {
+      'PENDING': { text: '待修复', color: 'var(--primary)', bg: 'rgba(37,99,235,0.1)' },
+      'SUCCESS': { text: '修复成功', color: 'var(--success)', bg: 'rgba(22,163,74,0.1)' },
+      'SKIPPED': { text: '已跳过', color: 'var(--warning)', bg: 'rgba(217,119,6,0.1)' },
+      'FAILED':  { text: '修复失败', color: 'var(--danger)', bg: 'rgba(220,38,38,0.1)' },
+      'PROCESSING': { text: '处理中', color: 'var(--primary)', bg: 'rgba(37,99,235,0.1)' }
+    };
+
+    function renderStatusBadge(status, detail) {
+      let item = STATUS_MAP[status] || { text: status, color: 'var(--text-muted)', bg: 'rgba(100,116,139,0.1)' };
+      let displayText = item.text;
+      if (status === 'SUCCESS' && detail && detail.includes('[模拟]')) {
+        displayText = '模拟成功';
+      } else if (status === 'PENDING' && detail && detail.includes('[待挖掘Exif]')) {
+        displayText = '待挖掘Exif';
+      }
+      return `<span style="display:inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: ${item.color}; background: ${item.bg};">${displayText}</span>`;
+    }
+
+    async function loadFiles() {
+      try {
+        const url = `/api/files?page=${currentPage}&page_size=${currentPageSize}&status=${encodeURIComponent(currentStatus)}&search=${encodeURIComponent(currentSearch)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const tbody = document.getElementById('filesTableBody');
+        const files = data.files || [];
+
+        totalPages = data.total_pages || 1;
+        totalFilesCount = data.total || 0;
+        currentPage = data.page || 1;
+
+        document.getElementById('paginationInfo').textContent = `共 ${totalFilesCount} 条文件记录`;
+        document.getElementById('pageIndicator').textContent = `第 ${currentPage} / ${totalPages} 页`;
+        document.getElementById('btnPrevPage').disabled = currentPage <= 1;
+        document.getElementById('btnNextPage').disabled = currentPage >= totalPages;
+
+        if (files.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">没有找到符合条件的文件记录</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = files.map(f => `
+          <tr>
+            <td style="font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.file_path}">${f.file_name}</td>
+            <td>${f.parsed_time || '-'}</td>
+            <td>${renderStatusBadge(f.status, f.detail)}</td>
+            <td style="color:var(--text-muted); font-size: 12px;">${f.detail || ''}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function changePage(delta) {
+      const target = currentPage + delta;
+      if (target >= 1 && target <= totalPages) {
+        currentPage = target;
+        loadFiles();
+      }
+    }
+
+    function onSearchInput() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        currentPage = 1;
+        currentSearch = document.getElementById('fileSearchInput').value.trim();
+        loadFiles();
+      }, 300);
+    }
+
+    function onStatusFilterChange() {
+      currentPage = 1;
+      currentStatus = document.getElementById('fileStatusSelect').value;
+      loadFiles();
+    }
+
+    function onPageSizeChange() {
+      currentPage = 1;
+      currentPageSize = parseInt(document.getElementById('pageSizeSelect').value, 10);
+      loadFiles();
+    }
+
+    async function startScan() {
+      if (!activeSelectedPath) {
+        openFolderPicker();
+        return;
+      }
+      const useFilename = document.getElementById('modeFilename').checked;
+      const useExif = document.getElementById('modeExif').checked;
+      const useDir = document.getElementById('modeDir').checked;
+      const incremental = document.getElementById('modeIncremental').checked;
+
+      if (!useFilename && !useExif && !useDir) {
+        alert('请至少勾选一种时间识别来源！');
+        return;
+      }
+
+      await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          path: activeSelectedPath,
+          use_filename: useFilename,
+          use_exif: useExif,
+          use_dir: useDir,
+          incremental: incremental
+        })
+      });
+    }
+
+    async function clearHistory() {
+      if (confirm('确认清空当前所有历史扫描记录与修复状态吗？清空后下次扫描将全量重新检索。')) {
+        await fetch('/api/clear_history', { method: 'POST' });
+        loadFiles();
+        pollStatus();
+      }
+    }
+
+    async function startFix(dryRun) {
+      const fixExif = document.getElementById('fixExif').checked;
+      const fixFs = document.getElementById('fixFs').checked;
+      const concurrency = parseInt(document.getElementById('concurrencySelect').value, 10) || 4;
+      await fetch('/api/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fix_exif: fixExif, 
+          fix_fs: fixFs, 
+          dry_run: dryRun,
+          concurrency: concurrency
+        })
+      });
+    }
+
+    async function togglePause() {
+      const btn = document.getElementById('pauseBtn');
+      if (btn.textContent === '暂停') {
+        await fetch('/api/pause', { method: 'POST' });
+      } else {
+        await fetch('/api/resume', { method: 'POST' });
+      }
+    }
+
+    async function stopTask() {
+      if (confirm('确认停止当前正在进行的任务吗？')) {
+        await fetch('/api/stop', { method: 'POST' });
+      }
+    }
+
+    async function testRegex() {
+      const fn = document.getElementById('sandboxInput').value.trim();
+      const res = await fetch('/api/test_regex', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: fn })
+      });
+      const data = await res.json();
+      const out = document.getElementById('sandboxResult');
+      if (data.success) {
+        out.innerHTML = `<span style="color:var(--success);">✔ 解析成功！匹配到的时间: <b>${data.parsed}</b></span>`;
+      } else {
+        out.innerHTML = `<span style="color:var(--danger);">✖ ${data.message}</span>`;
+      }
+    }
+
+    setInterval(pollStatus, 1500);
+    setInterval(() => {
+      if (isTaskRunning && document.activeElement !== document.getElementById('fileSearchInput')) {
+        loadFiles();
+      }
+    }, 3000);
+    pollStatus();
+    loadFiles();
+  </script>
+</body>
+</html>
