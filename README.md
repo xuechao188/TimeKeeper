@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/xuechao188/TimeKeeper/releases"><img src="https://img.shields.io/badge/version-v1.3.4-blue.svg" alt="Version"></a>
+  <a href="https://github.com/xuechao188/TimeKeeper/releases"><img src="https://img.shields.io/badge/version-v1.4.2-blue.svg" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
   <a href="https://www.fnnas.com/"><img src="https://img.shields.io/badge/platform-fnOS-orange.svg" alt="Platform"></a>
   <a href="https://github.com/xuechao188"><img src="https://img.shields.io/badge/maintainer-xuechao-purple.svg" alt="Maintainer"></a>
@@ -21,7 +21,7 @@
 
 在日常使用手机、相机或通过微信、QQ 等通讯软件传输照片视频时，多媒体文件的拍摄时间（EXIF DateTimeOriginal）及文件系统属性（创建时间/修改时间）经常会遭到篡改或丢失（例如全部变成了导入 NAS 当天的时间），导致在 **飞牛相册 (fnOS Photos)** 或其它相册工具中**时间线严重错乱**、回忆无法按正确的岁月顺序呈现。
 
-**时光修复师 (TimeKeeper)** 是专为飞牛私有云 NAS 开发的原生系统应用。依托高性能纯内存规则引擎、并发事务队列与 ExifTool 深度挖掘技术，能够从**文件名、目录层级、原生元数据**等多种维度，智能还原照片与视频的真实历史时间，彻底治愈 NAS 相册时间线混乱！
+**时光修复师 (TimeKeeper)** 是专为飞牛私有云 NAS 开发的原生系统应用。依托高性能纯内存规则引擎、并发事务队列与 ExifTool 深度挖掘技术，能够从**文件名、目录层级、原生元数据、照片水印**等多种维度，智能还原照片与视频的真实历史时间，彻底治愈 NAS 相册时间线混乱！
 
 ---
 
@@ -37,8 +37,17 @@
   - **主流品牌相机毫秒命名**：Google Pixel 等 `PXL_20230815_143025123.jpg`；
   - **社交应用导出时间戳**：微信 `mmexport1692085825000.jpg`（13位毫秒戳 / 10位秒戳）；
   - **中文年月日格式**：`2008年03月21日_聚会.jpg`。
+- 📁 **父文件夹年月继承 (按目录归档)**：
+  - 针对文件名无时间、无 Exif 的文件，自动向上扫描上级文件夹（如 `/照片/2015年12月/IMG_4270.JPG`），智能继承目录年月（如 `2015-12-01 12:00:00`）。
+- 🖼️ **图片缩略图悬停与大图灯箱预览**：
+  - 鼠标悬停文件名即时显示 220px 缩略图浮窗，并具备智能防屏幕边缘遮挡翻转；
+  - 点击文件名弹出居中高清大图查看窗口（支持在新标签页打开、查看路径与拍摄时间、ESC快捷关闭）。
+- ✏️ **手动单文件修改与多选批量递增指定时间**：
+  - 支持对特殊无法解析的文件进行手动指定拍摄时间，或勾选多个文件批量递增间隔时间（如每张顺延 1 秒），保存后一键转入待修复队列。
+- 🔤 **照片水印日期文字识别 (OCR)**：
+  - 内置极智轻量级水印时间识别引擎，自动局部定点裁剪高发区识别日期水印，速度快、资源省。
 - 🔍 **深度原生 Exif 挖掘**：
-  - 对于文件名不含时间、无规则命名的文件，自动回退到文件内部提取原始 Exif/QuickTime 拍摄时间；
+  - 对于文件名不含时间、无规则命名的相机原图，深度回退到文件内部提取原生 Exif/QuickTime 拍摄时间；
 - 🛠️ **全维度时间同步**：
   - 同时修正文件系统属性（`CreationTime` 创建时间、`LastWriteTime` 修改时间）；
   - 同步写入照片与视频内部元数据（`DateTimeOriginal`、`CreateDate`、`ModifyDate`）；
@@ -46,7 +55,7 @@
   - 支持动态配置 1~16 线程并发处理，充分利用 NAS 多核性能；
 - 📊 **现代化响应式 WebUI**：
   - 飞牛原生设计语言，单行卡片实时展现待处理、成功、跳过、失败、**预计剩余时间与预计完成时间**；
-  - 内置分页、文件名即时检索与状态筛选；
+  - 内置分页、文件名即时检索与状态筛选，支持目录列快速一键过滤；
   - 完美适配 PC 大屏与手机端窄屏触控操作（表格支持左右平滑滑动）；
   - 提供规则沙盒即时测试与实时控制台日志。
 - 🛡️ **安全模拟 (Dry-Run)**：

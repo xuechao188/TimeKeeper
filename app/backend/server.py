@@ -2,10 +2,11 @@ import os
 import sys
 import json
 import time
+import shutil
 import threading
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from parser import TimeParser
 from db import Database
 from exif_writer import ExifWriter
@@ -341,6 +342,81 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "parent": parent,
                 "directories": dirs
             })
+            return
+
+        if path == "/api/preview":
+            qs = parse_qs(url.query)
+            target_path = qs.get("path", [""])[0].strip()
+            # 兼容可能的多层 url 编码
+            if target_path.startswith("%2F") or target_path.startswith("%2f"):
+                target_path = unquote(target_path)
+
+            if not target_path or not os.path.exists(target_path):
+                self.send_error(404, f"File Not Found: {target_path}")
+                return
+            if not os.path.isfile(target_path):
+                self.send_error(400, "Target is not a regular file")
+                return
+
+            ext = os.path.splitext(target_path)[1].lower()
+            mime_types = {
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+                ".gif": "image/gif",
+                ".bmp": "image/bmp",
+                ".svg": "image/svg+xml"
+            }
+            if ext not in mime_types:
+                self.send_error(400, "Unsupported media preview")
+                return
+
+            try:
+                # 缩略图模式快速生成（悬停 320x320 预览，若支持 PIL）
+                is_thumb = qs.get("thumb", ["0"])[0] in ("1", "true")
+                if is_thumb:
+                    try:
+                        from PIL import Image, ImageOps
+                        import io
+                        with Image.open(target_path) as im:
+                            try:
+                                im = ImageOps.exif_transpose(im)
+                            except Exception:
+                                pass
+                            if im.mode != "RGB":
+                                im = im.convert("RGB")
+                            im.thumbnail((320, 320))
+                            buf = io.BytesIO()
+                            im.save(buf, format="JPEG", quality=82)
+                            thumb_bytes = buf.getvalue()
+                            self.send_response(200)
+                            self.send_header('Content-Type', 'image/jpeg')
+                            self.send_header('Content-Length', str(len(thumb_bytes)))
+                            self.send_header('Cache-Control', 'public, max-age=86400')
+                            self.end_headers()
+                            self.wfile.write(thumb_bytes)
+                            return
+                    except Exception:
+                        pass # 回退到发送原图
+
+                # 发送原图流（支持大图弹窗与新标签页打开）
+                file_size = os.path.getsize(target_path)
+                self.send_response(200)
+                self.send_header('Content-Type', mime_types.get(ext, 'image/jpeg'))
+                self.send_header('Content-Length', str(file_size))
+                self.send_header('Cache-Control', 'public, max-age=86400')
+                self.end_headers()
+                with open(target_path, 'rb') as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as e:
+                self.send_error(500, str(e))
             return
 
         # 静态文件服务

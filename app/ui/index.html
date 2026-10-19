@@ -479,7 +479,7 @@
       时光修复师 (TimeKeeper)
       <span class="badge" id="exifBadge">检查 ExifTool 中...</span>
     </h1>
-    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.4.1</div>
+    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.4.2</div>
   </div>
 
   <div class="card" style="margin-bottom: 20px;">
@@ -766,6 +766,36 @@
     </div>
   </div>
 
+  <!-- 鼠标悬停缩略图浮窗 -->
+  <div id="hoverPreviewBox" style="display: none; position: fixed; z-index: 99999; pointer-events: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.35); transition: opacity 0.15s ease;">
+    <img id="hoverPreviewImg" src="" style="width: 220px; height: 165px; object-fit: cover; border-radius: 6px; display: block; background: #111;">
+    <div id="hoverPreviewTitle" style="font-size: 11px; color: var(--text-muted); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; text-align: center;"></div>
+  </div>
+
+  <!-- 点击文件名查看大图预览弹窗 -->
+  <div class="modal-overlay" id="imageModal" onclick="closeImageModal(event)">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
+      <button class="modal-close" style="position: absolute; top: -38px; right: 0; color: #fff; font-size: 26px; background: rgba(0,0,0,0.5); border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none;" onclick="closeImageModal()">&times;</button>
+      <div style="background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid var(--border); max-width: 100%; max-height: 85vh; display: flex; flex-direction: column;">
+        <div style="padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600;">
+          <span id="imageModalTitle" style="max-width: 65vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">图片预览</span>
+          <a id="imageModalLink" href="" target="_blank" class="secondary" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">在新标签页打开 ↗</a>
+        </div>
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; min-width: 320px; min-height: 220px; padding: 10px; background: #000; overflow: hidden; max-height: 72vh;">
+          <div id="imageModalLoading" style="display: none; position: absolute; color: #ccc; font-size: 13px;">⌛ 正在加载图片...</div>
+          <div id="imageModalError" style="display: none; position: absolute; color: #ef4444; font-size: 13px; text-align: center; padding: 20px;">
+            ⚠️ 图片加载失败<br><span style="font-size: 11px; color: #999; margin-top: 4px; display: inline-block;">可点击上方【在新标签页打开】查看详情或检查文件权限</span>
+          </div>
+          <img id="imageModalImg" src="" style="max-width: 85vw; max-height: 68vh; object-fit: contain; display: block; border-radius: 4px;">
+        </div>
+        <div id="imageModalMeta" style="padding: 8px 16px; font-size: 12px; color: var(--text-muted); background: var(--bg); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <span id="imageModalTime">拍摄时间: -</span>
+          <span id="imageModalPath" style="max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">路径: -</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activeSelectedPath = "";
     let pickerCurrentPath = "";
@@ -776,6 +806,109 @@
       event.target.classList.add('active');
       document.getElementById(tabId).classList.add('active');
     }
+
+    // --- 图片悬停缩略图与大图弹窗预览 ---
+    function showHoverPreview(event, encPath, encName) {
+      const name = decodeURIComponent(encName);
+      const thumbUrl = `/api/preview?path=${encPath}&thumb=1`;
+      const box = document.getElementById('hoverPreviewBox');
+      const img = document.getElementById('hoverPreviewImg');
+      const title = document.getElementById('hoverPreviewTitle');
+      
+      title.textContent = name;
+      img.src = thumbUrl;
+      box.style.display = 'block';
+      box.style.opacity = '1';
+      moveHoverPreview(event);
+    }
+
+    function moveHoverPreview(event) {
+      const box = document.getElementById('hoverPreviewBox');
+      if (box.style.display === 'none') return;
+      const boxWidth = 236; // 220 + padding/border
+      const boxHeight = 205; // 165 + title + padding
+      const offset = 18;
+      
+      let x = event.clientX + offset;
+      let y = event.clientY + offset;
+
+      // 如果超出屏幕右边缘，向左翻转
+      if (x + boxWidth > window.innerWidth) {
+        x = event.clientX - boxWidth - offset;
+      }
+      // 如果超出屏幕下边缘，向上翻转
+      if (y + boxHeight > window.innerHeight) {
+        y = event.clientY - boxHeight - offset;
+      }
+      if (x < 10) x = 10;
+      if (y < 10) y = 10;
+
+      box.style.left = x + 'px';
+      box.style.top = y + 'px';
+    }
+
+    function hideHoverPreview() {
+      const box = document.getElementById('hoverPreviewBox');
+      box.style.display = 'none';
+      const img = document.getElementById('hoverPreviewImg');
+      img.src = '';
+    }
+
+    function openImageModal(encPath, encName, encTime) {
+      hideHoverPreview();
+      const path = decodeURIComponent(encPath);
+      const name = decodeURIComponent(encName);
+      const time = decodeURIComponent(encTime);
+      const previewUrl = `/api/preview?path=${encPath}`;
+
+      document.getElementById('imageModalTitle').textContent = `图片预览: ${name}`;
+      document.getElementById('imageModalLink').href = previewUrl;
+
+      const img = document.getElementById('imageModalImg');
+      const loader = document.getElementById('imageModalLoading');
+      const errBox = document.getElementById('imageModalError');
+
+      img.style.display = 'none';
+      if (errBox) errBox.style.display = 'none';
+      if (loader) loader.style.display = 'block';
+
+      img.onload = () => {
+        if (loader) loader.style.display = 'none';
+        img.style.display = 'block';
+      };
+      img.onerror = () => {
+        if (loader) loader.style.display = 'none';
+        if (errBox) errBox.style.display = 'block';
+      };
+      img.src = previewUrl;
+
+      document.getElementById('imageModalTime').textContent = `拍摄时间: ${time || '-'}`;
+      document.getElementById('imageModalPath').textContent = `路径: ${path}`;
+      document.getElementById('imageModalPath').title = path;
+
+      document.getElementById('imageModal').classList.add('open');
+    }
+
+    function closeImageModal(event) {
+      if (event && event.target && event.target !== document.getElementById('imageModal') && !event.target.classList.contains('modal-close')) {
+        return;
+      }
+      const modal = document.getElementById('imageModal');
+      modal.classList.remove('open');
+      const img = document.getElementById('imageModalImg');
+      img.onload = null;
+      img.onerror = null;
+      img.src = '';
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const imgModal = document.getElementById('imageModal');
+        if (imgModal && imgModal.classList.contains('open')) {
+          closeImageModal();
+        }
+      }
+    });
 
     // --- 文件夹选择器逻辑 ---
     function openFolderPicker() {
@@ -1215,13 +1348,37 @@
           return;
         }
 
-        tbody.innerHTML = files.map(f => `
+        tbody.innerHTML = files.map(f => {
+          const isImg = /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(f.file_name);
+          const isVideo = /\.(mp4|mov|mkv|avi|webm)$/i.test(f.file_name);
+          const encPath = encodeURIComponent(f.file_path);
+          const encName = encodeURIComponent(f.file_name);
+          const encTime = encodeURIComponent(f.parsed_time || '');
+
+          let nameHtml = '';
+          if (isImg) {
+            nameHtml = `
+              <span style="cursor: pointer; color: var(--primary); display: inline-flex; align-items: center; gap: 4px; max-width: 100%;"
+                    onmouseenter="showHoverPreview(event, '${encPath}', '${encName}')"
+                    onmousemove="moveHoverPreview(event)"
+                    onmouseleave="hideHoverPreview()"
+                    onclick="openImageModal('${encPath}', '${encName}', '${encTime}')">
+                🖼️ <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px;">${escapeHtml(f.file_name)}</span>
+              </span>
+            `;
+          } else if (isVideo) {
+            nameHtml = `🎬 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.file_name)}</span>`;
+          } else {
+            nameHtml = `📄 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.file_name)}</span>`;
+          }
+
+          return `
           <tr>
             <td style="text-align: center; width: 38px;">
               <input type="checkbox" class="file-chk" value="${f.id}" ${selectedFileIds.has(f.id) ? 'checked' : ''} onchange="toggleRowSelection(${f.id}, this.checked)">
             </td>
             <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f.file_path)}">
-              ${escapeHtml(f.file_name)}
+              ${nameHtml}
             </td>
             <td style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; cursor: pointer;" title="点击按此目录搜索:\n${escapeHtml(f.dir_name || '')}" onclick="searchByDir('${escapeHtml(f.dir_name || '')}')">
               📁 ${escapeHtml(formatDirDisplay(f.dir_name))}
@@ -1233,7 +1390,8 @@
               <button type="button" class="secondary" style="padding: 3px 8px; font-size: 11px; border-radius: 4px;" onclick="openSingleTimeModal(${f.id}, '${escapeHtml(f.file_name)}', '${escapeHtml(f.parsed_time || '')}')">✏️ 改时间</button>
             </td>
           </tr>
-        `).join('');
+        `;
+        }).join('');
 
         updateBatchActionBar();
       } catch (err) {
