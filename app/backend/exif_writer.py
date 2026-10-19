@@ -243,13 +243,13 @@ class ExifWriter:
                 exif_success = True
             elif self.has_exiftool:
                 try:
-                    # 第一轮尝试：带 -m 忽略轻微格式错误写入
+                    # 第一轮尝试：带 -m 忽略轻微格式错误写入，并直接同步设置文件修改时间
                     cmd = [
                         "exiftool",
                         "-overwrite_original",
-                        "-P",
                         "-m",  # 忽略 minor errors，自动修复乱序的 IFD 条目
                         f"-AllDates={time_str}",
+                        f"-FileModifyDate={time_str}",
                         f"-QuickTime:CreateDate={time_str}",
                         f"-QuickTime:ModifyDate={time_str}",
                         f"-QuickTime:TrackCreateDate={time_str}",
@@ -268,11 +268,11 @@ class ExifWriter:
                         cmd_fallback = [
                             "exiftool",
                             "-overwrite_original",
-                            "-P",
                             "-m",
                             f"-EXIF:DateTimeOriginal={time_str}",
                             f"-EXIF:CreateDate={time_str}",
                             f"-EXIF:ModifyDate={time_str}",
+                            f"-FileModifyDate={time_str}",
                             file_path
                         ]
                         res_fallback = subprocess.run(cmd_fallback, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
@@ -293,6 +293,14 @@ class ExifWriter:
                 fs_success = True
             except Exception as e:
                 fs_error_msg = f"文件系统时间修改失败: {str(e)}"
+
+            # 增加系统级 touch -m 强刷双重保障
+            try:
+                touch_cmd = ["touch", "-m", "-d", dt.strftime("%Y-%m-%d %H:%M:%S"), file_path]
+                subprocess.run(touch_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                fs_success = True
+            except Exception:
+                pass
 
         # 结果综合裁决
         if fix_exif and not exif_success:

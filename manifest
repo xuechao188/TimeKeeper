@@ -1,5 +1,5 @@
 appname=TimeKeeper
-version=1.4.2
+version=1.4.3
 display_name=时光修复师
 desc=专为飞牛 NAS 打造的高性能多媒体时光修复工具。支持从文件名智能提取时间、深度挖掘原生 Exif/QuickTime 拍摄时间、按年月文件夹层级智能继承、以及照片水印文字日期识别 (OCR)，批量校准照片与视频的创建时间、修改时间与 Exif 元数据，完美解决相册时间轴错乱问题。
 source=thirdparty
