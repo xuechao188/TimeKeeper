@@ -479,7 +479,7 @@
       时光修复师 (TimeKeeper)
       <span class="badge" id="exifBadge">检查 ExifTool 中...</span>
     </h1>
-    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.3.4</div>
+    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.4.0</div>
   </div>
 
   <div class="card" style="margin-bottom: 20px;">
@@ -587,7 +587,7 @@
     <!-- 搜索与筛选工具栏 -->
     <div class="files-toolbar" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
       <div class="files-toolbar-search" style="display: flex; gap: 10px; align-items: center; flex: 1; max-width: 500px;">
-        <input type="text" id="fileSearchInput" placeholder="🔍 搜索文件名 (输入即时检索)..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main);" oninput="onSearchInput()">
+        <input type="text" id="fileSearchInput" placeholder="🔍 搜索文件名或所在目录 (即时检索)..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main);" oninput="onSearchInput()">
         <select id="fileStatusSelect" style="padding: 8px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); cursor: pointer;" onchange="onStatusFilterChange()">
           <option value="ALL">全部状态</option>
           <option value="PENDING">待修复</option>
@@ -609,6 +609,19 @@
       </div>
     </div>
 
+    <!-- 批量操作通知栏 (有勾选时显示) -->
+    <div id="batchActionBar" style="display: none; background: rgba(59, 130, 246, 0.08); border: 1px solid var(--primary); border-radius: 8px; padding: 8px 14px; margin-bottom: 12px; align-items: center; justify-content: space-between;">
+      <div style="font-size: 13px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+        <span>已勾选 <b id="selectedFilesCount" style="color: var(--primary);">0</b> 个文件</span>
+        <button type="button" class="secondary" style="font-size: 11px; padding: 2px 8px;" onclick="clearSelection()">取消勾选</button>
+      </div>
+      <div>
+        <button type="button" class="primary" style="font-size: 12px; padding: 5px 12px;" onclick="openBatchTimeModal()">
+          📅 批量指定拍摄时间
+        </button>
+      </div>
+    </div>
+
     <!-- 手机端左右滑动提示 -->
     <div class="mobile-scroll-hint">👈👉 提示：可左右滑动表格查看完整字段</div>
 
@@ -617,14 +630,17 @@
       <table>
         <thead>
           <tr>
-            <th style="min-width: 220px;">文件名</th>
-            <th style="min-width: 150px;">识别出的时间</th>
-            <th style="min-width: 100px;">状态</th>
+            <th style="width: 38px; text-align: center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="全选当前页"></th>
+            <th style="min-width: 170px;">文件名</th>
+            <th style="min-width: 150px;">所在目录</th>
+            <th style="min-width: 140px;">识别出的时间</th>
+            <th style="min-width: 90px;">状态</th>
             <th>处理详情</th>
+            <th style="width: 80px; text-align: center;">操作</th>
           </tr>
         </thead>
         <tbody id="filesTableBody">
-          <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">暂无记录，请先选择目录点击【全量扫描文件】</td></tr>
+          <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">暂无记录，请先选择目录点击【全量扫描文件】</td></tr>
         </tbody>
       </table>
     </div>
@@ -701,6 +717,50 @@
 
       <div>
         <button class="secondary" style="font-size: 13px; padding: 8px 20px;" onclick="stopTask()">停止扫描</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手动指定与批量修改拍摄时间弹窗 -->
+  <div class="modal-overlay" id="timeEditModal">
+    <div class="modal-dialog" style="max-width: 480px; height: auto; min-height: 260px; padding: 22px 24px;">
+      <div class="modal-header" style="margin-bottom: 14px; padding: 0 0 10px 0; border-bottom: 1px solid var(--border);">
+        <h3 id="timeModalTitle" style="font-size: 16px;">手动指定拍摄时间</h3>
+        <button class="modal-close" onclick="closeTimeModal()">&times;</button>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;" id="timeModalDesc">
+        设置的目标时间将被写入文件的 Exif 与系统属性，并直接重新加入待修复队列。
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">选择拍摄日期与时间：</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="datetime-local" id="timeModalInput" step="1" style="flex: 1; padding: 9px 12px; font-size: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main);">
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 8px;">
+          <button type="button" class="secondary" style="font-size: 11px; padding: 3px 8px;" onclick="setTimeModalPreset('now')">设为当前时间</button>
+          <button type="button" class="secondary" style="font-size: 11px; padding: 3px 8px;" onclick="setTimeModalPreset('midnight')">当日 00:00:00</button>
+          <button type="button" class="secondary" style="font-size: 11px; padding: 3px 8px;" onclick="setTimeModalPreset('noon')">当日 12:00:00</button>
+        </div>
+      </div>
+
+      <!-- 批量修改模式下的自动递增选项 -->
+      <div id="batchStepOptions" style="display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="batchStepCheckbox" checked onchange="toggleBatchStepInput(this.checked)">
+          <span style="font-weight: 500;">每张照片时间自动递增（防止相册重叠）</span>
+        </label>
+        <div id="batchStepInputGroup" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-left: 22px; font-size: 12px; color: var(--text-muted);">
+          <span>每张顺延:</span>
+          <input type="number" id="batchStepSeconds" value="1" min="1" max="3600" style="width: 55px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-main); text-align: center;">
+          <span>秒 (例如 12:00:00, 12:00:01...)</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding: 12px 0 0 0; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="secondary" onclick="closeTimeModal()">取消</button>
+        <button type="button" class="primary" onclick="submitTimeEdit()">保存并设为待修复</button>
       </div>
     </div>
   </div>
@@ -999,6 +1059,97 @@
     let searchDebounceTimer = null;
     let isTaskRunning = false;
 
+    // 多选与批量时间设置状态
+    let selectedFileIds = new Set();
+    let currentVisibleFiles = [];
+    let timeModalTargetMode = 'single'; // 'single' or 'batch'
+    let singleTargetFileId = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatDirDisplay(dir) {
+      if (!dir) return '-';
+      const normalized = dir.replace(/\\/g, '/');
+      const parts = normalized.split('/').filter(Boolean);
+      if (parts.length <= 2) {
+        return normalized;
+      }
+      return '.../' + parts.slice(-2).join('/');
+    }
+
+    function searchByDir(dir) {
+      if (!dir) return;
+      document.getElementById('fileSearchInput').value = dir;
+      onSearchInput();
+    }
+
+    function updateSelectAllCheckbox() {
+      const selectAll = document.getElementById('selectAllCheckbox');
+      if (!selectAll) return;
+      if (currentVisibleFiles.length === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+      const allVisibleSelected = currentVisibleFiles.every(f => selectedFileIds.has(f.id));
+      const someVisibleSelected = currentVisibleFiles.some(f => selectedFileIds.has(f.id));
+      selectAll.checked = allVisibleSelected;
+      selectAll.indeterminate = !allVisibleSelected && someVisibleSelected;
+    }
+
+    function updateBatchActionBar() {
+      const bar = document.getElementById('batchActionBar');
+      const cntSpan = document.getElementById('selectedFilesCount');
+      if (selectedFileIds.size > 0) {
+        bar.style.display = 'flex';
+        cntSpan.textContent = selectedFileIds.size;
+      } else {
+        bar.style.display = 'none';
+      }
+      updateSelectAllCheckbox();
+    }
+
+    function toggleSelectAll(checked) {
+      currentVisibleFiles.forEach(f => {
+        if (checked) {
+          selectedFileIds.add(f.id);
+        } else {
+          selectedFileIds.delete(f.id);
+        }
+      });
+      loadFilesCheckboxStates();
+      updateBatchActionBar();
+    }
+
+    function toggleRowSelection(fileId, checked) {
+      if (checked) {
+        selectedFileIds.add(fileId);
+      } else {
+        selectedFileIds.delete(fileId);
+      }
+      updateBatchActionBar();
+    }
+
+    function clearSelection() {
+      selectedFileIds.clear();
+      loadFilesCheckboxStates();
+      updateBatchActionBar();
+    }
+
+    function loadFilesCheckboxStates() {
+      document.querySelectorAll('.file-chk').forEach(chk => {
+        chk.checked = selectedFileIds.has(parseInt(chk.value, 10));
+      });
+    }
+
     const STATUS_MAP = {
       'PENDING': { text: '待修复', color: 'var(--primary)', bg: 'rgba(37,99,235,0.1)' },
       'SUCCESS': { text: '修复成功', color: 'var(--success)', bg: 'rgba(22,163,74,0.1)' },
@@ -1014,6 +1165,8 @@
         displayText = '模拟成功';
       } else if (status === 'PENDING' && detail && detail.includes('[待挖掘Exif]')) {
         displayText = '待挖掘Exif';
+      } else if (status === 'PENDING' && detail && detail.includes('[手动指定时间]')) {
+        displayText = '手动指定';
       }
       return `<span style="display:inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: ${item.color}; background: ${item.bg};">${displayText}</span>`;
     }
@@ -1025,6 +1178,7 @@
         const data = await res.json();
         const tbody = document.getElementById('filesTableBody');
         const files = data.files || [];
+        currentVisibleFiles = files;
 
         totalPages = data.total_pages || 1;
         totalFilesCount = data.total || 0;
@@ -1036,20 +1190,157 @@
         document.getElementById('btnNextPage').disabled = currentPage >= totalPages;
 
         if (files.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">没有找到符合条件的文件记录</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">没有找到符合条件的文件记录</td></tr>`;
+          updateBatchActionBar();
           return;
         }
 
         tbody.innerHTML = files.map(f => `
           <tr>
-            <td style="font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.file_path}">${f.file_name}</td>
-            <td>${f.parsed_time || '-'}</td>
+            <td style="text-align: center; width: 38px;">
+              <input type="checkbox" class="file-chk" value="${f.id}" ${selectedFileIds.has(f.id) ? 'checked' : ''} onchange="toggleRowSelection(${f.id}, this.checked)">
+            </td>
+            <td style="font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f.file_path)}">
+              ${escapeHtml(f.file_name)}
+            </td>
+            <td style="max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; cursor: pointer;" title="点击按此目录搜索:\n${escapeHtml(f.dir_name || '')}" onclick="searchByDir('${escapeHtml(f.dir_name || '')}')">
+              📁 ${escapeHtml(formatDirDisplay(f.dir_name))}
+            </td>
+            <td style="font-family: monospace; font-size: 12px;">${f.parsed_time || '<span style="color:var(--text-muted);">-</span>'}</td>
             <td>${renderStatusBadge(f.status, f.detail)}</td>
-            <td style="color:var(--text-muted); font-size: 12px;">${f.detail || ''}</td>
+            <td style="color:var(--text-muted); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f.detail || '')}">${escapeHtml(f.detail || '')}</td>
+            <td style="text-align: center;">
+              <button type="button" class="secondary" style="padding: 3px 8px; font-size: 11px; border-radius: 4px;" onclick="openSingleTimeModal(${f.id}, '${escapeHtml(f.file_name)}', '${escapeHtml(f.parsed_time || '')}')">✏️ 改时间</button>
+            </td>
           </tr>
         `).join('');
+
+        updateBatchActionBar();
       } catch (err) {
         console.error(err);
+      }
+    }
+
+    // --- 手动指定与批量修改时间弹窗逻辑 ---
+    function formatDateTimeLocal(dt) {
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      const h = String(dt.getHours()).padStart(2, '0');
+      const min = String(dt.getMinutes()).padStart(2, '0');
+      const s = String(dt.getSeconds()).padStart(2, '0');
+      return `${y}-${m}-${d}T${h}:${min}:${s}`;
+    }
+
+    function openSingleTimeModal(fileId, fileName, currentParsedTime) {
+      timeModalTargetMode = 'single';
+      singleTargetFileId = fileId;
+      document.getElementById('timeModalTitle').textContent = `修改拍摄时间: ${fileName}`;
+      document.getElementById('timeModalDesc').textContent = '指定的目标时间将被记录为待修复状态，随后点击【执行修复】即可同步至文件 Exif 及系统时间。';
+      document.getElementById('batchStepOptions').style.display = 'none';
+
+      let defaultTimeStr = '';
+      if (currentParsedTime && currentParsedTime.trim()) {
+        defaultTimeStr = currentParsedTime.replace(' ', 'T');
+        if (defaultTimeStr.length === 10) defaultTimeStr += 'T12:00:00';
+        if (defaultTimeStr.length === 16) defaultTimeStr += ':00';
+      } else {
+        defaultTimeStr = formatDateTimeLocal(new Date());
+      }
+      document.getElementById('timeModalInput').value = defaultTimeStr;
+      document.getElementById('timeEditModal').classList.add('open');
+    }
+
+    function openBatchTimeModal() {
+      if (selectedFileIds.size === 0) {
+        alert('请先在列表中勾选需要批量修改时间的文件！');
+        return;
+      }
+      timeModalTargetMode = 'batch';
+      singleTargetFileId = null;
+      document.getElementById('timeModalTitle').textContent = `批量指定拍摄时间 (${selectedFileIds.size} 个文件)`;
+      document.getElementById('timeModalDesc').textContent = `为所选的 ${selectedFileIds.size} 个文件批量设置统一或顺延递增时间，并将它们重新转入待修复队列。`;
+      document.getElementById('batchStepOptions').style.display = 'block';
+
+      document.getElementById('timeModalInput').value = formatDateTimeLocal(new Date());
+      document.getElementById('timeEditModal').classList.add('open');
+    }
+
+    function closeTimeModal() {
+      document.getElementById('timeEditModal').classList.remove('open');
+    }
+
+    function setTimeModalPreset(type) {
+      const now = new Date();
+      const input = document.getElementById('timeModalInput');
+      let baseDate = now;
+      if (input.value) {
+        try {
+          const parsed = new Date(input.value);
+          if (!isNaN(parsed.getTime())) baseDate = parsed;
+        } catch(e) {}
+      }
+      if (type === 'now') {
+        input.value = formatDateTimeLocal(new Date());
+      } else if (type === 'midnight') {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 0, 0, 0);
+        input.value = formatDateTimeLocal(d);
+      } else if (type === 'noon') {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 12, 0, 0);
+        input.value = formatDateTimeLocal(d);
+      }
+    }
+
+    function toggleBatchStepInput(checked) {
+      document.getElementById('batchStepInputGroup').style.display = checked ? 'flex' : 'none';
+    }
+
+    async function submitTimeEdit() {
+      const inputVal = document.getElementById('timeModalInput').value;
+      if (!inputVal) {
+        alert('请选择有效的日期与时间！');
+        return;
+      }
+      let formattedTime = inputVal.replace('T', ' ');
+      if (formattedTime.length === 10) formattedTime += ' 00:00:00';
+      if (formattedTime.length === 16) formattedTime += ':00';
+
+      let stepSeconds = 1;
+      const isBatch = (timeModalTargetMode === 'batch');
+      if (isBatch) {
+        const useStep = document.getElementById('batchStepCheckbox').checked;
+        if (useStep) {
+          stepSeconds = parseInt(document.getElementById('batchStepSeconds').value, 10) || 1;
+        } else {
+          stepSeconds = 0;
+        }
+      }
+
+      const payload = {
+        file_ids: isBatch ? Array.from(selectedFileIds) : [singleTargetFileId],
+        time: formattedTime,
+        step_seconds: stepSeconds
+      };
+
+      try {
+        const res = await fetch('/api/update_time', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeTimeModal();
+          if (isBatch) {
+            clearSelection();
+          }
+          loadFiles();
+          pollStatus();
+        } else {
+          alert('保存失败: ' + (result.error || result.message));
+        }
+      } catch (err) {
+        alert('请求失败: ' + err.message);
       }
     }
 

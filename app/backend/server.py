@@ -441,6 +441,39 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"message": "任务已停止"})
             return
 
+        if path == "/api/update_time":
+            file_id = payload.get("file_id")
+            file_ids = payload.get("file_ids", [])
+            new_time = payload.get("time", "").strip()
+            step_seconds = int(payload.get("step_seconds", 1))
+
+            if file_id is not None and file_id not in file_ids:
+                file_ids = [file_id]
+
+            if not file_ids:
+                self._send_json({"error": "未提供要修改的文件 ID"}, code=400)
+                return
+
+            if not new_time:
+                self._send_json({"error": "未提供有效的时间字符串"}, code=400)
+                return
+
+            try:
+                cnt = db.batch_update_manual_time(file_ids, new_time, step_seconds=step_seconds)
+                # 重新刷新全局任务统计
+                stats = db.get_stats()
+                with task_lock:
+                    TASK_STATE["total"] = stats["TOTAL"]
+                    TASK_STATE["success"] = stats["SUCCESS"]
+                    TASK_STATE["skipped"] = stats["SKIPPED"]
+                    TASK_STATE["failed"] = stats["FAILED"]
+                    TASK_STATE["processed"] = stats["SUCCESS"] + stats["SKIPPED"] + stats["FAILED"]
+                add_log(f"已手动为 {cnt} 个文件指定目标时间 (起始: {new_time}, 递增步长: {step_seconds}秒)，已转入待修复队列！")
+                self._send_json({"success": True, "count": cnt, "message": f"成功修改 {cnt} 个文件的时间"})
+            except Exception as e:
+                self._send_json({"error": str(e)}, code=500)
+            return
+
         if path == "/api/test_regex":
             test_str = payload.get("filename", "")
             dt = parser.parse(test_str)

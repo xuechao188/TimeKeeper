@@ -126,8 +126,9 @@ class Database:
             params.append(status)
 
         if search and search.strip():
-            where_clauses.append("file_name LIKE ?")
-            params.append(f"%{search.strip()}%")
+            kw = f"%{search.strip()}%"
+            where_clauses.append("(file_name LIKE ? OR file_path LIKE ?)")
+            params.extend([kw, kw])
 
         where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
@@ -141,14 +142,18 @@ class Database:
             offset = (page - 1) * page_size
 
             query_sql = f"""
-            SELECT file_path, file_name, file_size, parsed_time, status, detail, updated_at
+            SELECT id, file_path, file_name, file_size, parsed_time, status, detail, updated_at
             FROM files 
             {where_sql}
             ORDER BY id DESC
             LIMIT ? OFFSET ?;
             """
             cursor = conn.execute(query_sql, params + [page_size, offset])
-            rows = [dict(r) for r in cursor.fetchall()]
+            rows = []
+            for r in cursor.fetchall():
+                d = dict(r)
+                d["dir_name"] = os.path.dirname(d["file_path"])
+                rows.append(d)
 
             total_pages = max(1, (total + page_size - 1) // page_size) if total > 0 else 1
 
@@ -159,6 +164,46 @@ class Database:
                 "total_pages": total_pages,
                 "files": rows
             }
+
+    def update_manual_time(self, file_id: int, new_time: str) -> bool:
+        """手动设置单个文件的时间，并重置为待修复状态"""
+        with self.lock, self._get_connection() as conn:
+            cursor = conn.execute("""
+            UPDATE files
+            SET parsed_time = ?, status = 'PENDING', detail = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?;
+            """, (new_time, f"[手动指定时间] {new_time}", file_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def batch_update_manual_time(self, file_ids: List[int], start_time_str: str, step_seconds: int = 1) -> int:
+        """批量手动指定时间，支持每张自动递增若干秒防止相册时间完全重叠"""
+        from datetime import datetime, timedelta
+        try:
+            base_dt = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            # 支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS
+            start_time_str = start_time_str.replace("T", " ")
+            if len(start_time_str) == 10:
+                start_time_str += " 00:00:00"
+            elif len(start_time_str) == 16:
+                start_time_str += ":00"
+            base_dt = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
+
+        updates = []
+        for i, fid in enumerate(file_ids):
+            t_dt = base_dt + timedelta(seconds=i * step_seconds)
+            t_str = t_dt.strftime("%Y-%m-%d %H:%M:%S")
+            updates.append((t_str, f"[手动指定时间] {t_str}", fid))
+
+        with self.lock, self._get_connection() as conn:
+            conn.executemany("""
+            UPDATE files
+            SET parsed_time = ?, status = 'PENDING', detail = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?;
+            """, updates)
+            conn.commit()
+            return len(updates)
 
     def get_recent_files(self, limit: int = 50, offset: int = 0) -> List[Dict]:
         with self.lock, self._get_connection() as conn:

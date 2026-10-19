@@ -76,35 +76,100 @@ class TimeParser:
         return None
 
     def parse_from_directory(self, full_path: str) -> Optional[datetime]:
+        """
+        目录层级时间深度提取：
+        1. 支持单级目录年月日 (2015-12-05, 2015年12月5日, 20151205 等)
+        2. 支持单级目录年月 (2015年12月, 2015-12, 2015.12, 201512 等)，自动补齐为当月1日
+        3. 支持跨层级级联提取 (父目录为年份如 2015 或 2015年，子目录为月份如 12 或 12月)
+        4. 支持纯年份目录 (2015年)，自动补齐为当年1月1日
+        """
         curr = os.path.dirname(os.path.abspath(full_path))
-        for _ in range(3):
-            folder_name = os.path.basename(curr)
-            if not folder_name or folder_name in ("/", "vol1", "vol2", "vol3", "vol4", "Photos", "Media"):
+        ignore_names = {
+            "/", "\\", "vol1", "vol2", "vol3", "vol4", "volume1", "volume2", "volume3",
+            "photos", "media", "photo", "video", "nas", "public", "homes", "home"
+        }
+        parts = []
+        for _ in range(4):
+            base = os.path.basename(curr)
+            if not base or base.lower() in ignore_names:
                 break
-
-            for regex, rule_type in self.dir_patterns:
-                match = regex.search(folder_name)
-                if match:
-                    try:
-                        if rule_type == "ymd":
-                            y, m, d = map(int, match.groups())
-                            dt = datetime(y, m, d, 0, 0, 0)
-                        elif rule_type == "ym":
-                            y, m = map(int, match.groups())
-                            dt = datetime(y, m, 1, 0, 0, 0)
-                        else:
-                            continue
-
-                        now = datetime.now()
-                        if 1970 <= dt.year <= (now.year + 1):
-                            return dt
-                    except Exception:
-                        pass
-
+            parts.append(base)
             parent = os.path.dirname(curr)
             if parent == curr:
                 break
             curr = parent
+
+        if not parts:
+            return None
+
+        now = datetime.now()
+        max_year = now.year + 1
+
+        ymd_patterns = [
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})[-_.年](0?[1-9]|1[0-2])[-_.月](0?[1-9]|[12]\d|3[01])[日]?(?:\D|$)', re.IGNORECASE),
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?:\D|$)', re.IGNORECASE)
+        ]
+        ym_patterns = [
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})[-_.年](0?[1-9]|1[0-2])[月]?(?:\D|$)', re.IGNORECASE),
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})[-_.](0?[1-9]|1[0-2])(?:\D|$)', re.IGNORECASE),
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})(0[1-9]|1[0-2])(?:\D|$)', re.IGNORECASE)
+        ]
+        y_patterns = [
+            re.compile(r'(?:^|[^\d])(19\d{2}|20\d{2})年(?:\D|$)', re.IGNORECASE),
+            re.compile(r'^(19\d{2}|20\d{2})$', re.IGNORECASE)
+        ]
+
+        # 1. 优先扫描单级目录完整年月日
+        for p in parts:
+            for reg in ymd_patterns:
+                m = reg.search(p)
+                if m:
+                    try:
+                        y, mo, d = map(int, m.groups()[-3:])
+                        if 1970 <= y <= max_year:
+                            return datetime(y, mo, d, 0, 0, 0)
+                    except Exception:
+                        pass
+
+        # 2. 扫描单级目录年月 (自动设为当月 1 日 0 点)
+        for p in parts:
+            for reg in ym_patterns:
+                m = reg.search(p)
+                if m:
+                    try:
+                        y, mo = map(int, m.groups()[-2:])
+                        if 1970 <= y <= max_year:
+                            return datetime(y, mo, 1, 0, 0, 0)
+                    except Exception:
+                        pass
+
+        # 3. 跨层级级联分析：例如子目录为月份 (12 或 12月)，父目录为年份 (2015 或 2015年)
+        for i in range(len(parts) - 1):
+            child = parts[i]
+            parent = parts[i + 1]
+            m_month = re.search(r'^(0?[1-9]|1[0-2])[月]?$', child)
+            m_year = re.search(r'^(19\d{2}|20\d{2})[年]?$', parent)
+            if m_month and m_year:
+                try:
+                    y = int(m_year.group(1))
+                    mo = int(m_month.group(1))
+                    if 1970 <= y <= max_year:
+                        return datetime(y, mo, 1, 0, 0, 0)
+                except Exception:
+                    pass
+
+        # 4. 纯年份目录兜底 (如 2015年 或 2015，设为当年 1 月 1 日)
+        for p in parts:
+            for reg in y_patterns:
+                m = reg.search(p)
+                if m:
+                    try:
+                        y = int(m.group(1))
+                        if 1970 <= y <= max_year:
+                            return datetime(y, 1, 1, 0, 0, 0)
+                    except Exception:
+                        pass
+
         return None
 
     def fast_resolve_at_scan(self, full_path: str, use_filename: bool = True, use_exif: bool = True, use_dir: bool = True) -> Tuple[Optional[datetime], str]:
