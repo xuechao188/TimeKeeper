@@ -479,7 +479,7 @@
       时光修复师 (TimeKeeper)
       <span class="badge" id="exifBadge">检查 ExifTool 中...</span>
     </h1>
-    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.4.0</div>
+    <div style="font-size: 12px; color: var(--text-muted);">飞牛 fnOS 专属原生应用 v1.4.1</div>
   </div>
 
   <div class="card" style="margin-bottom: 20px;">
@@ -514,10 +514,11 @@
       </div>
 
       <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-main);">时间识别来源设置（支持多选与级联回退）：</div>
-      <div class="checkbox-group" style="margin-bottom: 12px;">
+      <div class="checkbox-group" style="margin-bottom: 12px; flex-wrap: wrap;">
         <label title="首选：从文件名中提取年月日时分秒或时间戳"><input type="checkbox" id="modeFilename" checked> 1. 文件名时间提取 (高优先级)</label>
         <label title="救回相机拍摄图：从照片或视频内部Exif/QuickTime深层元数据提取"><input type="checkbox" id="modeExif" checked> 2. 内部原生 Exif 挖掘 (救回相机原图)</label>
         <label title="针对无时间文件：向上检查父文件夹是否包含年月归档信息"><input type="checkbox" id="modeDir" checked> 3. 父文件夹年月继承 (按目录归档)</label>
+        <label title="极智轻量模式：仅在前序方式均未匹配时，高速扫描照片右下角/左下角水印文字时间"><input type="checkbox" id="modeOcr"> 4. 图片水印文字识别 (OCR 局部兜底) <span id="ocrStatusBadge" style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(100,116,139,0.1); color: var(--text-muted); margin-left: 2px;">检测中...</span></label>
       </div>
 
       <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-main);">修复动作目标项与性能：</div>
@@ -923,6 +924,23 @@
           badge.style.color = 'var(--warning)';
         }
 
+        const ocrBadge = document.getElementById('ocrStatusBadge');
+        if (ocrBadge && data.ocr_status) {
+          if (data.ocr_status.available) {
+            ocrBadge.textContent = '已就绪 (Tesseract)';
+            ocrBadge.style.color = 'var(--success)';
+            ocrBadge.style.background = 'rgba(22,163,74,0.1)';
+            ocrBadge.title = 'Tesseract OCR 引擎已就绪，已启用角部高速定点裁剪推理';
+          } else {
+            ocrBadge.textContent = '未安装引擎 (点击指引)';
+            ocrBadge.style.color = 'var(--warning)';
+            ocrBadge.style.background = 'rgba(217,119,6,0.1)';
+            ocrBadge.style.cursor = 'pointer';
+            ocrBadge.title = data.ocr_status.hint || '点击查看如何启用 OCR 引擎';
+            ocrBadge.onclick = () => alert('【开启图片水印文字 OCR 识别指引】\n\n' + (data.ocr_status.hint || '系统未检测到 Tesseract 引擎。\n在飞牛 NAS 终端执行：sudo apt update && sudo apt install -y tesseract-ocr python3-pil 即可自动开启！'));
+          }
+        }
+
         const stats = data.stats || {};
         const pendingCount = stats.PENDING || 0;
         document.getElementById('valPending').textContent = pendingCount;
@@ -1167,6 +1185,8 @@
         displayText = '待挖掘Exif';
       } else if (status === 'PENDING' && detail && detail.includes('[手动指定时间]')) {
         displayText = '手动指定';
+      } else if (status === 'PENDING' && detail && detail.includes('[照片水印识别]')) {
+        displayText = '水印识别';
       }
       return `<span style="display:inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; color: ${item.color}; background: ${item.bg};">${displayText}</span>`;
     }
@@ -1381,9 +1401,10 @@
       const useFilename = document.getElementById('modeFilename').checked;
       const useExif = document.getElementById('modeExif').checked;
       const useDir = document.getElementById('modeDir').checked;
+      const useOcr = document.getElementById('modeOcr').checked;
       const incremental = document.getElementById('modeIncremental').checked;
 
-      if (!useFilename && !useExif && !useDir) {
+      if (!useFilename && !useExif && !useDir && !useOcr) {
         alert('请至少勾选一种时间识别来源！');
         return;
       }
@@ -1396,6 +1417,7 @@
           use_filename: useFilename,
           use_exif: useExif,
           use_dir: useDir,
+          use_ocr: useOcr,
           incremental: incremental
         })
       });

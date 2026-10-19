@@ -3,6 +3,11 @@ import re
 from datetime import datetime
 from typing import Optional, Tuple
 
+try:
+    from app.backend.ocr_reader import WatermarkOCRReader
+except ImportError:
+    from ocr_reader import WatermarkOCRReader
+
 class TimeParser:
     """
     轻量级纯内存极速解析引擎：
@@ -10,6 +15,7 @@ class TimeParser:
     彻底消除外部子进程与重型 IO 开销，6 万文件扫描秒级完成！
     """
     def __init__(self):
+        self.ocr_reader = WatermarkOCRReader()
         # 1. 文件名时间正则 (按匹配精度从高到低排列)
         self.filename_patterns = [
             # 1. 14位或含毫秒带分隔符的 ymd_hms (如 IMG_20230815_143025.jpg, 2023-08-15 14.30.25.jpg, PXL_20230815_143025123.jpg)
@@ -172,12 +178,13 @@ class TimeParser:
 
         return None
 
-    def fast_resolve_at_scan(self, full_path: str, use_filename: bool = True, use_exif: bool = True, use_dir: bool = True) -> Tuple[Optional[datetime], str]:
+    def fast_resolve_at_scan(self, full_path: str, use_filename: bool = True, use_exif: bool = True, use_dir: bool = True, use_ocr: bool = False) -> Tuple[Optional[datetime], str]:
         """
         极速扫描模式：
-        1. 先跑内存级纯正则（文件名）
-        2. 再跑内存级纯目录匹配
-        3. 若都没匹配到，且勾选了'内部原生Exif挖掘'，则先标记为'NEED_EXIF'进入队列，留给执行阶段异步处理，避免扫描阶段反复启动几十万个进程卡死系统！
+        1. 优先内存级纯正则（文件名）
+        2. 其次内存级纯目录匹配
+        3. 若均未匹配且勾选了'图片水印识别'，执行角部局部 OCR 兜底
+        4. 若都没匹配到，且勾选了'内部原生Exif挖掘'，则标记为待执行阶段深度挖掘 Exif
         """
         if use_filename:
             dt = self.parse_from_filename(full_path)
@@ -188,6 +195,13 @@ class TimeParser:
             dt = self.parse_from_directory(full_path)
             if dt:
                 return dt, "目录年月继承"
+
+        if use_ocr:
+            ext = os.path.splitext(full_path)[1].lower()
+            if ext in ('.jpg', '.jpeg', '.png'):
+                dt = self.ocr_reader.extract_time(full_path)
+                if dt:
+                    return dt, "照片水印识别"
 
         if use_exif:
             # 标记为待执行阶段深度探测 Exif

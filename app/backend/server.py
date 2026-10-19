@@ -44,9 +44,9 @@ def add_log(msg: str):
         if len(TASK_STATE["logs"]) > 200:
             TASK_STATE["logs"].pop(0)
 
-def scan_worker(target_dir: str, use_filename: bool = True, use_exif: bool = True, use_dir: bool = True, incremental: bool = True):
+def scan_worker(target_dir: str, use_filename: bool = True, use_exif: bool = True, use_dir: bool = True, incremental: bool = True, use_ocr: bool = False):
     mode_text = "智能增量(跳过已修复)" if incremental else "全量覆盖重扫"
-    add_log(f"开始扫描目录 [{mode_text}]: {target_dir} (文件名:{use_filename}, 内部Exif:{use_exif}, 目录继承:{use_dir})")
+    add_log(f"开始扫描目录 [{mode_text}]: {target_dir} (文件名:{use_filename}, 内部Exif:{use_exif}, 目录继承:{use_dir}, 水印OCR:{use_ocr})")
     with task_lock:
         TASK_STATE["status"] = "SCANNING"
         TASK_STATE["current_path"] = target_dir
@@ -99,7 +99,8 @@ def scan_worker(target_dir: str, use_filename: bool = True, use_exif: bool = Tru
                 full_path, 
                 use_filename=use_filename, 
                 use_exif=use_exif, 
-                use_dir=use_dir
+                use_dir=use_dir,
+                use_ocr=use_ocr
             )
 
             if dt:
@@ -271,6 +272,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 data = dict(TASK_STATE)
                 data["stats"] = stats
                 data["has_exiftool"] = writer.has_exiftool
+                data["ocr_status"] = parser.ocr_reader.get_status()
             self._send_json(data)
             return
 
@@ -386,6 +388,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             use_exif = payload.get("use_exif", True)
             use_dir = payload.get("use_dir", True)
             incremental = payload.get("incremental", True)
+            use_ocr = payload.get("use_ocr", False)
 
             if not target_dir or not os.path.exists(target_dir):
                 self._send_json({"error": "目录路径无效或不存在"}, code=400)
@@ -393,7 +396,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             stop_flag.clear()
             pause_flag.clear()
-            threading.Thread(target=scan_worker, args=(target_dir, use_filename, use_exif, use_dir, incremental), daemon=True).start()
+            threading.Thread(target=scan_worker, args=(target_dir, use_filename, use_exif, use_dir, incremental, use_ocr), daemon=True).start()
             self._send_json({"message": "扫描任务已在后台启动"})
             return
 

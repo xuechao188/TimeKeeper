@@ -2,4 +2,9 @@
 
 ### This script is called after the user installs the application.
 
+# 后台静默尝试安装 tesseract-ocr 与 python3-pil (不阻塞安装流程)
+if ! which tesseract >/dev/null 2>&1; then
+    (apt-get update -y && apt-get install -y --no-install-recommends tesseract-ocr python3-pil) >/dev/null 2>&1 &
+fi
+
 exit 0
